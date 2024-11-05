@@ -25,7 +25,9 @@ func (share *Share) Verify(curve elliptic.Curve, threshold int, commits []*ECPoi
 	tk := big.NewInt(1)
 
 	for k := 1; k < threshold; k++ {
-		tk.Mul(tk, share.X)                                                      // t^k
+		tk.Mul(tk, share.X) // t^k
+		tk.Mod(tk, curve.Params().N)
+
 		cktkX, cktkY := curve.ScalarMult(commits[k].X, commits[k].Y, tk.Bytes()) // C_k * t^k
 		acc.X, acc.Y = curve.Add(acc.X, acc.Y, cktkX, cktkY)                     // sum(C_k * t^k)
 	}

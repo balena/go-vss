@@ -2,7 +2,6 @@ package vss
 
 import (
 	"crypto/elliptic"
-	"errors"
 	"fmt"
 	"math/big"
 )
@@ -20,12 +19,23 @@ type Share struct {
 //
 // This function is typically executed by each participant upon receiving a
 // share along with the commitments published by a dealer.
-func (share *Share) Verify(curve elliptic.Curve, threshold int, commits []*ECPoint) (bool, error) {
-	if commits == nil {
-		return false, errors.New("commits cannot be nil")
+func (share *Share) Verify(
+	curve elliptic.Curve,
+	threshold int,
+	commits []*ECPoint,
+	opts ...option,
+) (bool, error) {
+	withBlinding := false
+	for _, op := range opts {
+		op(&withBlinding)
 	}
-	if len(commits) != threshold {
-		return false, fmt.Errorf("commits length %d does not correspond to threshold %d", len(commits), threshold)
+
+	expectedLen := threshold
+	if withBlinding {
+		expectedLen = 2 * threshold
+	}
+	if len(commits) != expectedLen {
+		return false, fmt.Errorf("commits length %d does not correspond to expected length %d", len(commits), expectedLen)
 	}
 
 	acc := *commits[0]
@@ -36,10 +46,20 @@ func (share *Share) Verify(curve elliptic.Curve, threshold int, commits []*ECPoi
 		tk.Mod(tk, curve.Params().N)
 
 		// Multiply the k-th commitment by t^k
-		cktkX, cktkY := curve.ScalarMult(commits[k].X, commits[k].Y, tk.Bytes())
-		acc.X, acc.Y = curve.Add(acc.X, acc.Y, cktkX, cktkY)
+		secretCommitX, secretCommitY := curve.ScalarMult(commits[k].X, commits[k].Y, tk.Bytes())
+		acc.X, acc.Y = curve.Add(acc.X, acc.Y, secretCommitX, secretCommitY)
+
+		if withBlinding {
+			blindingCommitIndex := k + threshold
+			blindingCommitX, blindingCommitY := curve.ScalarMult(
+				commits[blindingCommitIndex].X,
+				commits[blindingCommitIndex].Y,
+				tk.Bytes(),
+			)
+			acc.X, acc.Y = curve.Add(acc.X, acc.Y, blindingCommitX, blindingCommitY)
+		}
 	}
 
-	fiGx, fiGy := curve.ScalarBaseMult(share.Y.Bytes())
-	return fiGx.Cmp(acc.X) == 0 && fiGy.Cmp(acc.Y) == 0, nil
+	expectedX, expectedY := curve.ScalarBaseMult(share.Y.Bytes())
+	return expectedX.Cmp(acc.X) == 0 && expectedY.Cmp(acc.Y) == 0, nil
 }

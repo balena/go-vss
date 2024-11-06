@@ -1,9 +1,14 @@
 # Verifiable Secret Sharing (VSS)
 
-Implementation of the [Verifiable Secret Sharing (VSS)][vss] in Go using Feldman's scheme.
+Implementation of the [Verifiable Secret Sharing (VSS)][vss] in Go using
+Feldman's and Pedersen's scheme.
 
-Note that this scheme is, at best, secure against computationally bounded
-adversaries, namely the intractability of computing discrete logarithms.
+You can optionally choose Pedersen's share blinding by using the option
+`WithBlinding`.
+
+Note that the default Feldman's scheme is, at best, secure against
+computationally bounded adversaries, namely the intractability of computing
+discrete logarithms.
 
 This package:
 
